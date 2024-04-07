@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
 	"os"
 	"url-shortener/internal/config"
@@ -31,7 +32,13 @@ func main() {
 
 	_ = storage
 
+	// Chi router usage
 	router := chi.NewRouter()
+
+	// Chi router middlewares
+	router.Use(middleware.RequestID)
+	router.Use(middleware.RealIP)
+	router.Use(middleware.Logger)
 
 }
 
