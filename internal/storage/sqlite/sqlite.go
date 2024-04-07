@@ -64,3 +64,55 @@ func (s *Storage) SaveURL(urlToSave, alias string) (int64, error) {
 
 	return id, nil
 }
+
+func (s *Storage) GetUrl(alias string) (string, error) {
+	const op = "storage.sqlite.GetUrl"
+
+	stmt, err := s.db.Prepare("SELECT url FROM url WHERE alias = ?")
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	defer func(stmt *sql.Stmt) {
+		err := stmt.Close()
+		if err != nil {
+			_ = fmt.Errorf("%s: %w", op, err)
+		}
+	}(stmt)
+
+	var resUrl string
+	err = stmt.QueryRow(alias).Scan(&resUrl)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	return resUrl, nil
+}
+
+func (s *Storage) DeleteURL(alias string) error {
+	const op = "storage.sqlite.DeleteURL"
+
+	stmt, err := s.db.Prepare("DELETE FROM url WHERE alias = ?")
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	res, err := stmt.Exec(alias)
+	if err != nil {
+		var sqliteErr sqlite3.Error
+		if errors.As(err, &sqliteErr) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
+			return fmt.Errorf("%s: %w", op, storage.ErrURLExists)
+		}
+
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("%s: %w", op, storage.ErrURLNotFound)
+	}
+	return nil
+}
